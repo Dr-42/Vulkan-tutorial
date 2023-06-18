@@ -4,7 +4,7 @@ compiler = "g++"
 [[targets]]
 name = "main"
 src = "./src/"
-include_dir = "./src/include/"
+include_dir = "./src/include"
 type = "exe"
 cflags = "-g -Wall -Wextra -std=c++17"
 libs = "-lvulkan-1 -lglew32 -lglfw3 -lopengl32"
