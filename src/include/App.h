@@ -15,7 +15,8 @@ private:
     void cleanup();
 
     void createInstance();
-    bool _checkExtensions(std::vector<VkExtensionProperties> *extensions, const char **glfwExtensions, uint32_t glfwExtensionCount);
+    bool _checkExtensions(std::vector<VkExtensionProperties> *extensions, const char **extension_names, uint32_t extensionCount);
+    bool _checkValidationLayerSupport();
 
 private:
     GLFWwindow *_window;
@@ -23,4 +24,13 @@ private:
     uint32_t _height = 600;
 
     VkInstance _instance;
+
+    std::vector<const char *> validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
+    #ifdef NDEBUG
+        const bool _enableValidationLayers = false;
+    #else
+        const bool _enableValidationLayers = true;
+    #endif
 };

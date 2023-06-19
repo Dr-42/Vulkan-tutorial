@@ -31,6 +31,10 @@ void App::initVulkan() {
 }
 
 void App::createInstance(){
+    if(_enableValidationLayers && !_checkValidationLayerSupport()){
+        throw std::runtime_error("Validation layers requested, but not available!");
+    }
+
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Hello Triangle";
@@ -50,10 +54,17 @@ void App::createInstance(){
     createInfo.enabledExtensionCount = glfwExtensionCount;
     createInfo.ppEnabledExtensionNames = glfwExtensions;
 
-    createInfo.enabledLayerCount = 0;
+    if(_enableValidationLayers){
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        createInfo.enabledLayerCount = 0;
+    }
 
     VkResult result = vkCreateInstance(&createInfo, nullptr, &_instance);
     if(result != VK_SUCCESS){
+        //Log the error type
+        std::cerr << "Error: " << result << std::endl;
         throw std::runtime_error("Failed to create instance!");
     }
 
@@ -69,12 +80,12 @@ void App::createInstance(){
     }
 }
 
-bool App::_checkExtensions(std::vector<VkExtensionProperties> *extensions, const char **glfwExtensions, uint32_t glfwExtensionCount) {
+bool App::_checkExtensions(std::vector<VkExtensionProperties> *extensions, const char **extension_names, uint32_t extensionCount) {
     bool allExtensionsAvailable = true;
-    for(uint32_t i = 0; i < glfwExtensionCount; i++){
+    for(uint32_t i = 0; i < extensionCount; i++){
         bool extensionAvailable = false;
         for(const auto& extension : *extensions){
-            if(strcmp(glfwExtensions[i], extension.extensionName) == 0){
+            if(strcmp(extension_names[i], extension.extensionName) == 0){
                 extensionAvailable = true;
                 break;
             }
@@ -87,7 +98,39 @@ bool App::_checkExtensions(std::vector<VkExtensionProperties> *extensions, const
     return allExtensionsAvailable;
 }
 
-void App::cleanup() {
+bool App::_checkValidationLayerSupport()
+{
+    uint32_t layerCount;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    for (const char *layerName : validationLayers)
+    {
+        bool layerFound = false;
+
+        for (const auto &layerProperties : availableLayers)
+        {
+            if (strcmp(layerName, layerProperties.layerName) == 0)
+            {
+                layerFound = true;
+                break;
+            }
+        }
+
+        if (!layerFound)
+        {
+            return false;
+        }
+    }
+
+    std::cout << "Validation layers available!" << std::endl;
+    return true;
+}
+
+void App::cleanup()
+{
     vkDestroyInstance(_instance, nullptr);
 
     glfwDestroyWindow(_window);
