@@ -15,8 +15,16 @@ private:
     void cleanup();
 
     void createInstance();
-    bool _checkExtensions(std::vector<VkExtensionProperties> *extensions, const char **extension_names, uint32_t extensionCount);
+    void setupDebugMessenger();
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    std::vector<const char*> _getRequiredExtensions();
+    bool _checkExtensions(std::vector<const char*> extensions);
     bool _checkValidationLayerSupport();
+    static VKAPI_ATTR VkBool32 VKAPI_CALL _debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData);
 
 private:
     GLFWwindow *_window;
@@ -24,6 +32,7 @@ private:
     uint32_t _height = 600;
 
     VkInstance _instance;
+    VkDebugUtilsMessengerEXT _debugMessenger;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
