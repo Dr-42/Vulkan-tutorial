@@ -24,6 +24,7 @@ class App {
     void createInstance();
     void setupDebugMessenger();
     void pickPhysicalDevice();
+    void createLogicalDevice();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -46,6 +47,8 @@ class App {
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debugMessenger;
     VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
+    VkDevice _device;
+    VkQueue _graphicsQueue;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
