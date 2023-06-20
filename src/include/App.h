@@ -69,6 +69,9 @@ class App {
 
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapChain;
+    std::vector<VkImage> _swapChainImages;
+    VkFormat _swapChainImageFormat;
+    VkExtent2D _swapChainExtent;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
