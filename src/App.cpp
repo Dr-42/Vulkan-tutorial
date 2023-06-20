@@ -4,6 +4,13 @@
 #include <iostream>
 #include <cstring>
 
+#define UNI_RED "\033[0;31m"
+#define UNI_GREEN "\033[0;32m"
+#define UNI_YELLOW "\033[0;33m"
+#define UNI_BLUE "\033[0;34m"
+#define UNI_REDBACK "\033[41m"
+#define UNI_RESET "\033[0m"
+
 void App::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
     createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -212,8 +219,26 @@ VKAPI_ATTR VkBool32 VKAPI_CALL App::_debugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
     void *pUserData)
 {
+    (void)(pUserData);
+    (void)(messageType);
+    switch(messageSeverity){
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            std::cout << UNI_BLUE << "VK_Verbose: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            std::cout << UNI_GREEN << "VK_Info: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            std::cerr << UNI_YELLOW << "VK_Warning: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+            break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+            std::cerr << UNI_RED << "VK_Error: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+            break;
+        default:
+            std::cout << UNI_REDBACK << "VK_Unknown: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+            break;
+    }
 
-    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
     return VK_FALSE;
 }
