@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 
 #define UNI_RED "\033[0;31m"
@@ -12,7 +13,7 @@
 #define UNI_RESET "\033[0m"
 
 bool QueueFamilyIndices::isComplete() {
-    return graphicsFamily.has_value();
+    return graphicsFamily.has_value() && presentFamily.has_value();
 }
 
 void App::_populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
@@ -65,6 +66,7 @@ void App::mainLoop() {
 
 void App::initVulkan() {
     createInstance();
+    createSurface();
     setupDebugMessenger();
     pickPhysicalDevice();
     createLogicalDevice();
@@ -117,6 +119,14 @@ void App::createInstance() {
     }
 }
 
+void App::createSurface() {
+    auto result = glfwCreateWindowSurface(_instance, _window, nullptr, &_surface);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create window surface!");
+    }
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Window surface created!" << std::endl;
+}
+
 void App::setupDebugMessenger() {
     if (!_enableValidationLayers)
         return;
@@ -151,19 +161,23 @@ void App::pickPhysicalDevice() {
 void App::createLogicalDevice() {
     QueueFamilyIndices indices = _findQueueFamilies(_physicalDevice);
 
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
-    queueCreateInfo.queueCount = 1;
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+    std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
     float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    for (uint32_t queueFamily : uniqueQueueFamilies) {
+        VkDeviceQueueCreateInfo queueCreateInfo{};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = queueFamily;
+        queueCreateInfo.queueCount = 1;
 
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfos.push_back(queueCreateInfo);
+    }
     VkPhysicalDeviceFeatures deviceFeatures{};
-
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = queueCreateInfos.data();
+    createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = 0;
 
@@ -178,6 +192,7 @@ void App::createLogicalDevice() {
     }
 
     vkGetDeviceQueue(_device, indices.graphicsFamily.value(), 0, &_graphicsQueue);
+    vkGetDeviceQueue(_device, indices.presentFamily.value(), 0, &_presentQueue);
 
     std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Logical device created!" << std::endl;
 }
@@ -193,6 +208,9 @@ std::vector<const char *> App::_getRequiredExtensions() {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
+    for (const auto &extension : extensions) {
+        std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Required extension: " << extension << std::endl;
+    }
     return extensions;
 }
 
@@ -253,6 +271,8 @@ bool App::_isDeviceSuitable(VkPhysicalDevice device) {
 
     QueueFamilyIndices indices = _findQueueFamilies(device);
 
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Checking device " << deviceProperties.deviceName << std::endl;
+
     bool suitable = deviceProperties.deviceType ==
                         VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
                     deviceFeatures.geometryShader &&
@@ -274,15 +294,19 @@ QueueFamilyIndices App::_findQueueFamilies(VkPhysicalDevice device) {
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
     int i = 0;
+
     for (const auto &queueFamily : queueFamilies) {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
         }
-
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _surface, &presentSupport);
+        if (presentSupport) {
+            indices.presentFamily = i;
+        }
         if (indices.isComplete()) {
             break;
         }
-
         i++;
     }
 
@@ -295,6 +319,7 @@ void App::cleanup() {
         DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
     }
 
+    vkDestroySurfaceKHR(_instance, _surface, nullptr);
     vkDestroyInstance(_instance, nullptr);
 
     glfwDestroyWindow(_window);
@@ -310,7 +335,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL App::_debugCallback(
     (void)(messageType);
     switch (messageSeverity) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+#ifdef VERBOSE
             std::cout << UNI_BLUE << "VK_Verbose: " << UNI_RESET << pCallbackData->pMessage << std::endl;
+#endif
             break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
             std::cout << UNI_GREEN << "VK_Info: " << UNI_RESET << pCallbackData->pMessage << std::endl;
