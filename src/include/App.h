@@ -12,6 +12,12 @@ struct QueueFamilyIndices {
     bool isComplete();
 };
 
+struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
 class App {
    public:
     void run();
@@ -27,11 +33,13 @@ class App {
     void setupDebugMessenger();
     void pickPhysicalDevice();
     void createLogicalDevice();
+    void createSwapChain();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
     bool _checkExtensions(std::vector<const char *> extensions);
     bool _checkValidationLayerSupport();
+
     static VKAPI_ATTR VkBool32 VKAPI_CALL _debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -40,6 +48,12 @@ class App {
 
     bool _isDeviceSuitable(VkPhysicalDevice device);
     QueueFamilyIndices _findQueueFamilies(VkPhysicalDevice device);
+    bool _checkDeviceExtensionSupport(VkPhysicalDevice device);
+
+    SwapChainSupportDetails _querySwapChainSupport(VkPhysicalDevice device);
+    VkSurfaceFormatKHR _chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
+    VkPresentModeKHR _chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
+    VkExtent2D _chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
    private:
     GLFWwindow *_window;
@@ -54,9 +68,12 @@ class App {
     VkQueue _presentQueue;
 
     VkSurfaceKHR _surface;
+    VkSwapchainKHR _swapChain;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
+    std::vector<const char *> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 #ifdef NDEBUG
     const bool _enableValidationLayers = false;
 #else
