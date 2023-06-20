@@ -1,8 +1,8 @@
 #include "App.h"
 
-#include <stdexcept>
-#include <iostream>
 #include <cstring>
+#include <iostream>
+#include <stdexcept>
 
 #define UNI_RED "\033[0;31m"
 #define UNI_GREEN "\033[0;32m"
@@ -11,7 +11,7 @@
 #define UNI_REDBACK "\033[41m"
 #define UNI_RESET "\033[0m"
 
-void App::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+void App::_populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
     createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
@@ -19,8 +19,8 @@ void App::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& c
     createInfo.pfnUserCallback = _debugCallback;
 }
 
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger) {
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
     if (func != nullptr) {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
     } else {
@@ -28,8 +28,8 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
     }
 }
 
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if (func != nullptr) {
         func(instance, debugMessenger, pAllocator);
     } else {
@@ -62,10 +62,11 @@ void App::mainLoop() {
 void App::initVulkan() {
     createInstance();
     setupDebugMessenger();
+    pickPhysicalDevice();
 }
 
-void App::createInstance(){
-    if(_enableValidationLayers && !_checkValidationLayerSupport()){
+void App::createInstance() {
+    if (_enableValidationLayers && !_checkValidationLayerSupport()) {
         throw std::runtime_error("Validation layers requested, but not available!");
     }
 
@@ -82,7 +83,7 @@ void App::createInstance(){
     createInfo.pApplicationInfo = &appInfo;
 
     auto extensions = _getRequiredExtensions();
-    if(!_checkExtensions(extensions)){
+    if (!_checkExtensions(extensions)) {
         throw std::runtime_error("Required extensions not available!");
     } else {
         std::cout << "Required extensions available!" << std::endl;
@@ -92,107 +93,111 @@ void App::createInstance(){
     createInfo.ppEnabledExtensionNames = extensions.data();
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 
-    if(_enableValidationLayers){
+    if (_enableValidationLayers) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
         createInfo.ppEnabledLayerNames = validationLayers.data();
 
-        populateDebugMessengerCreateInfo(debugCreateInfo);
-        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
-
+        _populateDebugMessengerCreateInfo(debugCreateInfo);
+        createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
     } else {
         createInfo.enabledLayerCount = 0;
         createInfo.pNext = nullptr;
     }
 
     VkResult result = vkCreateInstance(&createInfo, nullptr, &_instance);
-    if(result != VK_SUCCESS){
-        //Log the error type
+    if (result != VK_SUCCESS) {
+        // Log the error type
         std::cerr << "Error: " << result << std::endl;
         throw std::runtime_error("Failed to create instance!");
     }
-
 }
 
-void App::setupDebugMessenger()
-{
+void App::setupDebugMessenger() {
     if (!_enableValidationLayers)
         return;
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-    populateDebugMessengerCreateInfo(createInfo);
+    _populateDebugMessengerCreateInfo(createInfo);
 
     auto result = CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr, &_debugMessenger);
-    if(result != VK_SUCCESS){
+    if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to set up debug messenger!");
     }
 }
 
-std::vector<const char *> App::_getRequiredExtensions()
-{
+void App::pickPhysicalDevice() {
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr);
+    if (deviceCount == 0) {
+        throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+    }
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
+    for (const auto &device : devices) {
+        if (_isDeviceSuitable(device)) {
+            _physicalDevice = device;
+            break;
+        }
+    }
+    if (_physicalDevice == VK_NULL_HANDLE) {
+        throw std::runtime_error("Failed to find a suitable GPU!");
+    }
+}
+
+std::vector<const char *> App::_getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
     std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
-    if (_enableValidationLayers)
-    {
+    if (_enableValidationLayers) {
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
     return extensions;
 }
 
-bool App::_checkExtensions(std::vector<const char *> extensions)
-{
+bool App::_checkExtensions(std::vector<const char *> extensions) {
     uint32_t extensionCount;
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     std::vector<VkExtensionProperties> extens(extensionCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extens.data());
 
-    for (const char *extension : extensions)
-    {
+    for (const char *extension : extensions) {
         bool extensionFound = false;
 
-        for (const auto &extensionProperties : extens)
-        {
-            if (strcmp(extension, extensionProperties.extensionName) == 0)
-            {
+        for (const auto &extensionProperties : extens) {
+            if (strcmp(extension, extensionProperties.extensionName) == 0) {
                 extensionFound = true;
                 break;
             }
         }
 
-        if (!extensionFound)
-        {
+        if (!extensionFound) {
             return false;
         }
     }
     return true;
 }
 
-bool App::_checkValidationLayerSupport()
-{
+bool App::_checkValidationLayerSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-    for (const char *layerName : validationLayers)
-    {
+    for (const char *layerName : validationLayers) {
         bool layerFound = false;
 
-        for (const auto &layerProperties : availableLayers)
-        {
-            if (strcmp(layerName, layerProperties.layerName) == 0)
-            {
+        for (const auto &layerProperties : availableLayers) {
+            if (strcmp(layerName, layerProperties.layerName) == 0) {
                 layerFound = true;
                 break;
             }
         }
 
-        if (!layerFound)
-        {
+        if (!layerFound) {
             return false;
         }
     }
@@ -201,9 +206,25 @@ bool App::_checkValidationLayerSupport()
     return true;
 }
 
-void App::cleanup()
-{
-    if(_enableValidationLayers){
+bool App::_isDeviceSuitable(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    bool suitable = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+                    deviceFeatures.geometryShader;
+
+    if (suitable) {
+        std::cout << "Suitable device found!" << std::endl;
+        std::cout << deviceProperties.deviceName << std::endl;
+    }
+
+    return suitable;
+}
+
+void App::cleanup() {
+    if (_enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
     }
 
@@ -217,11 +238,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL App::_debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-    void *pUserData)
-{
+    void *pUserData) {
     (void)(pUserData);
     (void)(messageType);
-    switch(messageSeverity){
+    switch (messageSeverity) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
             std::cout << UNI_BLUE << "VK_Verbose: " << UNI_RESET << pCallbackData->pMessage << std::endl;
             break;
@@ -238,7 +258,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL App::_debugCallback(
             std::cout << UNI_REDBACK << "VK_Unknown: " << UNI_RESET << pCallbackData->pMessage << std::endl;
             break;
     }
-
 
     return VK_FALSE;
 }
