@@ -11,6 +11,10 @@
 #define UNI_REDBACK "\033[41m"
 #define UNI_RESET "\033[0m"
 
+bool QueueFamilyIndices::isComplete() {
+    return graphicsFamily.has_value();
+}
+
 void App::_populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
     createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -86,7 +90,7 @@ void App::createInstance() {
     if (!_checkExtensions(extensions)) {
         throw std::runtime_error("Required extensions not available!");
     } else {
-        std::cout << "Required extensions available!" << std::endl;
+        std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Required extensions available!" << std::endl;
     }
 
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
@@ -202,7 +206,7 @@ bool App::_checkValidationLayerSupport() {
         }
     }
 
-    std::cout << "Validation layers available!" << std::endl;
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Validation layers available!" << std::endl;
     return true;
 }
 
@@ -212,15 +216,42 @@ bool App::_isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-    bool suitable = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-                    deviceFeatures.geometryShader;
+    QueueFamilyIndices indices = _findQueueFamilies(device);
+
+    bool suitable = deviceProperties.deviceType ==
+                        VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+                    deviceFeatures.geometryShader &&
+                    indices.isComplete();
 
     if (suitable) {
-        std::cout << "Suitable device found!" << std::endl;
-        std::cout << deviceProperties.deviceName << std::endl;
+        std::cout << UNI_GREEN << "Device: " << UNI_RESET << deviceProperties.deviceName << std::endl;
     }
 
     return suitable;
+}
+
+QueueFamilyIndices App::_findQueueFamilies(VkPhysicalDevice device) {
+    QueueFamilyIndices indices;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    int i = 0;
+    for (const auto &queueFamily : queueFamilies) {
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            indices.graphicsFamily = i;
+        }
+
+        if (indices.isComplete()) {
+            break;
+        }
+
+        i++;
+    }
+
+    return indices;
 }
 
 void App::cleanup() {

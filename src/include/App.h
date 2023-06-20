@@ -1,8 +1,15 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+
+    bool isComplete();
+};
 
 class App {
    public:
@@ -29,6 +36,7 @@ class App {
         void *pUserData);
 
     bool _isDeviceSuitable(VkPhysicalDevice device);
+    QueueFamilyIndices _findQueueFamilies(VkPhysicalDevice device);
 
    private:
     GLFWwindow *_window;
