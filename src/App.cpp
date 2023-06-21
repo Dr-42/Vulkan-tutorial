@@ -77,6 +77,8 @@ void App::initVulkan() {
     createRenderPass();
     createGraphicsPipeline();
     createFrameBuffers();
+    createCommandPool();
+    createCommandBuffer();
 }
 
 void App::createInstance() {
@@ -500,6 +502,34 @@ void App::createFrameBuffers() {
     }
 }
 
+void App::createCommandPool() {
+    QueueFamilyIndices queueFamilyIndices = _findQueueFamilies(_physicalDevice);
+
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+    auto result = vkCreateCommandPool(_device, &poolInfo, nullptr, &_commandPool);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create command pool!");
+    }
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Created command pool" << std::endl;
+}
+
+void App::createCommandBuffer() {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = _commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    auto result = vkAllocateCommandBuffers(_device, &allocInfo, &_commandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers!");
+    }
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Allocated command buffers" << std::endl;
+}
 std::vector<const char *> App::_getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
@@ -721,7 +751,65 @@ VkShaderModule App::_createShaderModule(const std::vector<char> &code) {
     return shaderModule;
 }
 
+void App::_recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    auto result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording command buffer");
+    }
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Command buffer recording started" << std::endl;
+
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = _renderPass;
+    renderPassInfo.framebuffer = _swapChainFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = _swapChainExtent;
+
+    VkClearValue clearColor = {{{0.3f, 0.0f, 0.3f, 1.0f}}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
+
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+
+    viewport.width = static_cast<float>(_swapChainExtent.width);
+    viewport.height = static_cast<float>(_swapChainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = _swapChainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(commandBuffer);
+
+    result = vkEndCommandBuffer(commandBuffer);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record command buffer");
+    }
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Command buffer recording finished" << std::endl;
+}
+
 void App::cleanup() {
+    vkDestroyCommandPool(_device, _commandPool, nullptr);
+
     for (auto framebuffer : _swapChainFramebuffers) {
         vkDestroyFramebuffer(_device, framebuffer, nullptr);
     }

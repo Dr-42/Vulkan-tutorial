@@ -38,6 +38,8 @@ class App {
     void createRenderPass();
     void createGraphicsPipeline();
     void createFrameBuffers();
+    void createCommandPool();
+    void createCommandBuffer();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -61,6 +63,8 @@ class App {
 
     VkShaderModule _createShaderModule(const std::vector<char> &code);
 
+    void _recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+
    private:
     GLFWwindow *_window;
     uint32_t _width = 800;
@@ -82,8 +86,9 @@ class App {
     VkRenderPass _renderPass;
     VkPipelineLayout _pipelineLayout;
     VkPipeline _graphicsPipeline;
-
     std::vector<VkFramebuffer> _swapChainFramebuffers;
+    VkCommandPool _commandPool;
+    VkCommandBuffer _commandBuffer;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
