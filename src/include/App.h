@@ -91,11 +91,13 @@ class App {
     VkPipeline _graphicsPipeline;
     std::vector<VkFramebuffer> _swapChainFramebuffers;
     VkCommandPool _commandPool;
-    VkCommandBuffer _commandBuffer;
+    std::vector<VkCommandBuffer> _commandBuffers;
 
-    VkSemaphore _imageAvailableSemaphore;
-    VkSemaphore _renderFinishedSemaphore;
-    VkFence _inFlightFence;
+    std::vector<VkSemaphore> _imageAvailableSemaphores;
+    std::vector<VkSemaphore> _renderFinishedSemaphores;
+    std::vector<VkFence> _inFlightFences;
+
+    size_t _currentFrame = 0;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
