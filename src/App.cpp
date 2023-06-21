@@ -5,6 +5,8 @@
 #include <set>
 #include <stdexcept>
 
+#include "utils.h"
+
 #define UNI_RED "\033[0;31m"
 #define UNI_GREEN "\033[0;32m"
 #define UNI_YELLOW "\033[0;33m"
@@ -72,6 +74,7 @@ void App::initVulkan() {
     createLogicalDevice();
     createSwapChain();
     createImageViews();
+    createGraphicsPipeline();
 }
 
 void App::createInstance() {
@@ -295,6 +298,31 @@ void App::createImageViews() {
     }
 }
 
+void App::createGraphicsPipeline() {
+    auto vertShaderCode = Utils::readFile("shaders/vert.spv");
+    auto fragShaderCode = Utils::readFile("shaders/frag.spv");
+
+    VkShaderModule vertShaderModule = _createShaderModule(vertShaderCode);
+    VkShaderModule fragShaderModule = _createShaderModule(fragShaderCode);
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+    vkDestroyShaderModule(_device, fragShaderModule, nullptr);
+    vkDestroyShaderModule(_device, vertShaderModule, nullptr);
+}
+
 std::vector<const char *> App::_getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
@@ -499,6 +527,23 @@ VkExtent2D App::_chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) 
     return actualExtent;
 }
 
+VkShaderModule App::_createShaderModule(const std::vector<char> &code) {
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
+
+    VkShaderModule shaderModule;
+    auto result = vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shader module");
+    }
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Shader module created" << std::endl;
+
+    return shaderModule;
+}
+
 void App::cleanup() {
     for (auto imageView : _swapChainImageViews) {
         vkDestroyImageView(_device, imageView, nullptr);
@@ -510,6 +555,7 @@ void App::cleanup() {
     }
 
     vkDestroySurfaceKHR(_instance, _surface, nullptr);
+
     vkDestroyInstance(_instance, nullptr);
 
     glfwDestroyWindow(_window);

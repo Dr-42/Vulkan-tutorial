@@ -35,6 +35,7 @@ class App {
     void createLogicalDevice();
     void createSwapChain();
     void createImageViews();
+    void createGraphicsPipeline();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -55,6 +56,8 @@ class App {
     VkSurfaceFormatKHR _chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
     VkPresentModeKHR _chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
     VkExtent2D _chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+
+    VkShaderModule _createShaderModule(const std::vector<char> &code);
 
    private:
     GLFWwindow *_window;
