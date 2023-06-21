@@ -63,7 +63,10 @@ void App::initWindow() {
 void App::mainLoop() {
     while (!glfwWindowShouldClose(_window)) {
         glfwPollEvents();
+        _drawFrame();
     }
+
+    vkDeviceWaitIdle(_device);
 }
 
 void App::initVulkan() {
@@ -79,6 +82,7 @@ void App::initVulkan() {
     createFrameBuffers();
     createCommandPool();
     createCommandBuffer();
+    createSyncObjects();
 }
 
 void App::createInstance() {
@@ -329,6 +333,17 @@ void App::createRenderPass() {
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
     auto result = vkCreateRenderPass(_device, &renderPassInfo, nullptr, &_renderPass);
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create render pass!");
@@ -452,6 +467,13 @@ void App::createGraphicsPipeline() {
     pipelineInfo.stageCount = 2;
     pipelineInfo.pStages = shaderStages;
 
+    // Setup dynamic state for viewport and scissor
+    VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
+    dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicStateCreateInfo.dynamicStateCount = 2;
+    dynamicStateCreateInfo.pDynamicStates = dynamicStates;
+
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pViewportState = &viewportState;
@@ -459,7 +481,7 @@ void App::createGraphicsPipeline() {
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pDepthStencilState = nullptr;  // Optional
     pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = nullptr;  // Optional
+    pipelineInfo.pDynamicState = &dynamicStateCreateInfo;
     pipelineInfo.layout = _pipelineLayout;
     pipelineInfo.renderPass = _renderPass;
     pipelineInfo.subpass = 0;
@@ -507,6 +529,7 @@ void App::createCommandPool() {
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
     auto result = vkCreateCommandPool(_device, &poolInfo, nullptr, &_commandPool);
@@ -530,6 +553,34 @@ void App::createCommandBuffer() {
     }
     std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Allocated command buffers" << std::endl;
 }
+
+void App::createSyncObjects() {
+    VkSemaphoreCreateInfo semaphoreInfo{};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    auto result = VK_RESULT_MAX_ENUM;
+    result = vkCreateSemaphore(_device, &semaphoreInfo, nullptr, &_imageAvailableSemaphore);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create imageAvailable semaphore!");
+    }
+
+    result = vkCreateSemaphore(_device, &semaphoreInfo, nullptr, &_renderFinishedSemaphore);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create renderFinished semaphore!");
+    }
+
+    result = vkCreateFence(_device, &fenceInfo, nullptr, &_inFlightFence);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create inFlight fence!");
+    }
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Created sync objects" << std::endl;
+}
+
 std::vector<const char *> App::_getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
@@ -763,8 +814,6 @@ void App::_recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageInde
         throw std::runtime_error("Failed to begin recording command buffer");
     }
 
-    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Command buffer recording started" << std::endl;
-
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = _renderPass;
@@ -772,7 +821,7 @@ void App::_recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageInde
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = _swapChainExtent;
 
-    VkClearValue clearColor = {{{0.3f, 0.0f, 0.3f, 1.0f}}};
+    VkClearValue clearColor = {{{0.1f, 0.0f, 0.1f, 1.0f}}};
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
@@ -803,11 +852,74 @@ void App::_recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageInde
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to record command buffer");
     }
+}
 
-    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Command buffer recording finished" << std::endl;
+void App::_drawFrame() {
+    vkWaitForFences(_device, 1, &_inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(_device, 1, &_inFlightFence);
+
+    uint32_t imageIndex;
+    auto result = vkAcquireNextImageKHR(
+        _device,
+        _swapChain,
+        UINT64_MAX,
+        _imageAvailableSemaphore,
+        VK_NULL_HANDLE,
+        &imageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        std::cout << UNI_YELLOW << "Warning: " << UNI_RESET << "Swap chain out of date" << std::endl;
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("Failed to acquire swap chain image");
+    }
+
+    _recordCommandBuffer(_commandBuffer, imageIndex);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = {_imageAvailableSemaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &_commandBuffer;
+
+    VkSemaphore signalSemaphores[] = {_renderFinishedSemaphore};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    result = vkQueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to submit draw command buffer");
+    }
+
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = {_swapChain};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr;
+
+    result = vkQueuePresentKHR(_presentQueue, &presentInfo);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        std::cout << UNI_YELLOW << "Warning: " << UNI_RESET << "Swap chain out of date" << std::endl;
+    } else if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to present swap chain image");
+    }
 }
 
 void App::cleanup() {
+    vkDestroySemaphore(_device, _imageAvailableSemaphore, nullptr);
+    vkDestroySemaphore(_device, _renderFinishedSemaphore, nullptr);
+    vkDestroyFence(_device, _inFlightFence, nullptr);
+
     vkDestroyCommandPool(_device, _commandPool, nullptr);
 
     for (auto framebuffer : _swapChainFramebuffers) {
@@ -833,6 +945,8 @@ void App::cleanup() {
 
     glfwDestroyWindow(_window);
     glfwTerminate();
+
+    std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Cleanup finished" << std::endl;
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL App::_debugCallback(

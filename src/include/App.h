@@ -40,6 +40,7 @@ class App {
     void createFrameBuffers();
     void createCommandPool();
     void createCommandBuffer();
+    void createSyncObjects();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -65,6 +66,8 @@ class App {
 
     void _recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
+    void _drawFrame();
+
    private:
     GLFWwindow *_window;
     uint32_t _width = 800;
@@ -89,6 +92,10 @@ class App {
     std::vector<VkFramebuffer> _swapChainFramebuffers;
     VkCommandPool _commandPool;
     VkCommandBuffer _commandBuffer;
+
+    VkSemaphore _imageAvailableSemaphore;
+    VkSemaphore _renderFinishedSemaphore;
+    VkFence _inFlightFence;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
