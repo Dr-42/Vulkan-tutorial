@@ -34,6 +34,7 @@ class App {
     void pickPhysicalDevice();
     void createLogicalDevice();
     void createSwapChain();
+    void createImageViews();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -72,6 +73,7 @@ class App {
     std::vector<VkImage> _swapChainImages;
     VkFormat _swapChainImageFormat;
     VkExtent2D _swapChainExtent;
+    std::vector<VkImageView> _swapChainImageViews;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
