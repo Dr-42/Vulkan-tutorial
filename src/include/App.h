@@ -37,6 +37,7 @@ class App {
     void createImageViews();
     void createRenderPass();
     void createGraphicsPipeline();
+    void createFrameBuffers();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();
@@ -81,6 +82,8 @@ class App {
     VkRenderPass _renderPass;
     VkPipelineLayout _pipelineLayout;
     VkPipeline _graphicsPipeline;
+
+    std::vector<VkFramebuffer> _swapChainFramebuffers;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
