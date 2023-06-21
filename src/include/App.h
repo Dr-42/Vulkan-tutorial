@@ -77,6 +77,7 @@ class App {
     VkFormat _swapChainImageFormat;
     VkExtent2D _swapChainExtent;
     std::vector<VkImageView> _swapChainImageViews;
+    VkPipelineLayout _pipelineLayout;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
