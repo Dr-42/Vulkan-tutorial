@@ -53,6 +53,7 @@ class App {
     void createFrameBuffers();
     void createCommandPool();
     void createVertexBuffer();
+    void createIndexBuffer();
     void createCommandBuffer();
     void createSyncObjects();
 
@@ -121,12 +122,17 @@ class App {
     size_t _currentFrame = 0;
 
     const std::vector<Vertex> _vertices = {
-        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+
+    const std::vector<uint16_t> _indices = {0, 1, 2, 2, 3, 0};
 
     VkBuffer _vertexBuffer;
     VkDeviceMemory _vertexBufferMemory;
+    VkBuffer _indexBuffer;
+    VkDeviceMemory _indexBufferMemory;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
