@@ -1,9 +1,12 @@
 #pragma once
 
+#include <array>
 #include <optional>
 #include <vector>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -16,6 +19,14 @@ struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
+};
+
+struct Vertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+
+    static VkVertexInputBindingDescription getBindingDescription();
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
 };
 
 class App {
