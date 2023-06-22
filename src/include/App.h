@@ -21,6 +21,7 @@ struct SwapChainSupportDetails {
 class App {
    public:
     void run();
+    bool _framebufferResized = false;
 
    private:
     void initWindow();
@@ -41,6 +42,9 @@ class App {
     void createCommandPool();
     void createCommandBuffer();
     void createSyncObjects();
+
+    void recreateSwapChain();
+    void cleanupSwapChain();
 
     void _populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
     std::vector<const char *> _getRequiredExtensions();

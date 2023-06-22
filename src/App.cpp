@@ -46,6 +46,13 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
+static void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+    (void)width;
+    (void)height;
+    auto app = reinterpret_cast<App *>(glfwGetWindowUserPointer(window));
+    app->_framebufferResized = true;
+}
+
 void App::run() {
     initWindow();
     initVulkan();
@@ -57,9 +64,11 @@ void App::initWindow() {
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     _window = glfwCreateWindow(_width, _height, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(_window, this);
+    glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 }
 
 void App::mainLoop() {
@@ -592,6 +601,35 @@ void App::createSyncObjects() {
     std::cout << UNI_GREEN << "Info: " << UNI_RESET << "Created sync objects" << std::endl;
 }
 
+void App::recreateSwapChain() {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(_window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(_window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(_device);
+
+    cleanupSwapChain();
+
+    createSwapChain();
+    createImageViews();
+    createFrameBuffers();
+}
+
+void App::cleanupSwapChain() {
+    for (auto framebuffer : _swapChainFramebuffers) {
+        vkDestroyFramebuffer(_device, framebuffer, nullptr);
+    }
+
+    for (auto imageView : _swapChainImageViews) {
+        vkDestroyImageView(_device, imageView, nullptr);
+    }
+
+    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
+}
+
 std::vector<const char *> App::_getRequiredExtensions() {
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
@@ -867,7 +905,6 @@ void App::_recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageInde
 
 void App::_drawFrame() {
     vkWaitForFences(_device, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
-    vkResetFences(_device, 1, &_inFlightFences[_currentFrame]);
 
     uint32_t imageIndex;
     auto result = vkAcquireNextImageKHR(
@@ -879,11 +916,13 @@ void App::_drawFrame() {
         &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        std::cout << UNI_YELLOW << "Warning: " << UNI_RESET << "Swap chain out of date" << std::endl;
+        recreateSwapChain();
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("Failed to acquire swap chain image");
     }
+
+    vkResetFences(_device, 1, &_inFlightFences[_currentFrame]);
 
     vkResetCommandBuffer(_commandBuffers[_currentFrame], 0);
     _recordCommandBuffer(_commandBuffers[_currentFrame], imageIndex);
@@ -920,8 +959,9 @@ void App::_drawFrame() {
     presentInfo.pResults = nullptr;
 
     result = vkQueuePresentKHR(_presentQueue, &presentInfo);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        std::cout << UNI_YELLOW << "Warning: " << UNI_RESET << "Swap chain out of date" << std::endl;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _framebufferResized) {
+        _framebufferResized = false;
+        recreateSwapChain();
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to present swap chain image");
     }
@@ -930,6 +970,11 @@ void App::_drawFrame() {
 }
 
 void App::cleanup() {
+    cleanupSwapChain();
+    vkDestroyPipeline(_device, _graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
+    vkDestroyRenderPass(_device, _renderPass, nullptr);
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(_device, _renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(_device, _imageAvailableSemaphores[i], nullptr);
@@ -938,18 +983,6 @@ void App::cleanup() {
 
     vkDestroyCommandPool(_device, _commandPool, nullptr);
 
-    for (auto framebuffer : _swapChainFramebuffers) {
-        vkDestroyFramebuffer(_device, framebuffer, nullptr);
-    }
-
-    vkDestroyPipeline(_device, _graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
-    vkDestroyRenderPass(_device, _renderPass, nullptr);
-
-    for (auto imageView : _swapChainImageViews) {
-        vkDestroyImageView(_device, imageView, nullptr);
-    }
-    vkDestroySwapchainKHR(_device, _swapChain, nullptr);
     vkDestroyDevice(_device, nullptr);
     if (_enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
