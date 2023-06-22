@@ -11,6 +11,7 @@
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
+    std::optional<uint32_t> transferFamily;
 
     bool isComplete();
 };
@@ -85,6 +86,8 @@ class App {
     void _drawFrame();
 
     uint32_t _findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    void _createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
+    void _copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
    private:
     GLFWwindow *_window;
