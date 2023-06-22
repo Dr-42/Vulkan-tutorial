@@ -51,6 +51,7 @@ class App {
     void createGraphicsPipeline();
     void createFrameBuffers();
     void createCommandPool();
+    void createVertexBuffer();
     void createCommandBuffer();
     void createSyncObjects();
 
@@ -83,6 +84,8 @@ class App {
 
     void _drawFrame();
 
+    uint32_t _findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
    private:
     GLFWwindow *_window;
     uint32_t _width = 800;
@@ -113,6 +116,14 @@ class App {
     std::vector<VkFence> _inFlightFences;
 
     size_t _currentFrame = 0;
+
+    const std::vector<Vertex> _vertices = {
+        {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+
+    VkBuffer _vertexBuffer;
+    VkDeviceMemory _vertexBufferMemory;
 
     std::vector<const char *> validationLayers = {
         "VK_LAYER_KHRONOS_validation"};
