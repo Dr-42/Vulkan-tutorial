@@ -1,4 +1,4 @@
 #!/bin/sh
 
-glslc -o shaders/vert.spv shaders/shader.vert 
-glslc -o shaders/frag.spv shaders/shader.frag 
+glslc -o shaders/vert.spv -fshader-stage=vert shaders/vertex_shader.glsl
+glslc -o shaders/frag.spv -fshader-stage=frag shaders/fragment_shader.glsl

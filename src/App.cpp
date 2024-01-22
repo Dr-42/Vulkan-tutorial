@@ -16,6 +16,14 @@
 
 #define MAX_FRAMES_IN_FLIGHT 2
 
+void keyCallback(GLFWwindow *_window, int key, int scancode, int action, int mods) {
+    (void)scancode;
+    (void)mods;
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(_window, GLFW_TRUE);
+    }
+}
+
 VkVertexInputBindingDescription Vertex::getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription = {};
     bindingDescription.binding = 0;  // binding = 0 because we only have one binding
@@ -94,6 +102,7 @@ void App::initWindow() {
     _window = glfwCreateWindow(_width, _height, "Vulkan", nullptr, nullptr);
     glfwSetWindowUserPointer(_window, this);
     glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
+    glfwSetKeyCallback(_window, keyCallback);
 }
 
 void App::mainLoop() {
